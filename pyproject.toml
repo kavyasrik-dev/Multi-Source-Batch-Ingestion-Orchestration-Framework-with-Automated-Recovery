@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi-source-batch-ingestion-framework"
+version = "0.1.0"
+description = "Multi-source batch ingestion orchestration with automated recovery"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "requests==2.32.5",
+    "psycopg[binary]==3.2.10",
+    "minio==7.2.18",
+]
+
+[project.optional-dependencies]
+dev = ["ruff==0.14.4", "pytest==8.4.2"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app", "app.*"]
+namespaces = true
+
+[tool.ruff]
+required-version = "==0.14.4"
+target-version = "py312"
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-ra --strict-config --strict-markers --import-mode=importlib"
+filterwarnings = ["error"]
+markers = [
+    "unit: isolated tests without external services",
+    "integration: tests requiring external services",
+    "recovery: retry, checkpoint and failure recovery tests",
+]
