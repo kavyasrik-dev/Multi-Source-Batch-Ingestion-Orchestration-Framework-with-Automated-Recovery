@@ -1,14 +1,16 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 2 establishes development standards and configuration. Connectors, pipelines,
-orchestrators, service definitions and tests are not implemented yet. No CI/CD is configured.
+Day 3 adds local PostgreSQL, MinIO, Prometheus and Grafana infrastructure to the
+Python development setup. Connectors, pipelines and orchestrators are not implemented.
+No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
+for setup, service endpoints and the outstanding live Docker verification.
 
 ## Prerequisites and setup
 
 - CPython **3.12.x** with pip and venv; other Python minor versions are not supported.
 - Git and GNU Make. On Windows, use PowerShell for setup and install GNU Make or use
   the Python command equivalents below. WSL is also suitable for a separate Linux setup.
-- Docker Engine/Desktop with Compose v2 is needed only when service definitions are added.
+- Docker Engine/Desktop with Linux containers and Compose v2 for local infrastructure.
 
 Create an environment from the repository root on Windows:
 
@@ -16,7 +18,7 @@ Create an environment from the repository root on Windows:
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
-Copy-Item .env.example .env
+Copy-Item .env.example .env  # Only if no local .env already exists.
 ```
 
 On Linux/macOS:
@@ -25,7 +27,7 @@ On Linux/macOS:
 python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[dev]'
-cp .env.example .env
+cp -n .env.example .env
 ```
 
 Replace every environment placeholder locally before future services use it. The template
@@ -64,13 +66,14 @@ in `tests/unit`, service tests in `tests/integration`, failure/retry tests in
 are `unit`, `integration` and `recovery`; apply them explicitly when useful.
 Unit tests must not require network access, databases or object storage. Share test
 fixtures through `conftest.py` when needed. Unknown markers/configuration and warnings
-fail validation. pytest exit code **5** currently means no tests were collected;
-it is not a passing test suite. Do not add placeholder tests merely to hide that state.
+fail validation. pytest exit code **5** means no tests were collected, not a passing suite.
+Unit tests currently cover MinIO bucket initialization and error handling.
 
-`make compose-up`, `make compose-down` and `make compose-logs` are reserved for a
-future `infrastructure/docker/compose.yaml`. They validate the file first and are
-expected to fail until it exists. Override `COMPOSE_FILE` to select another stack.
-`compose-down` does not request volume deletion. No Docker or Compose files are added yet.
+`make compose-up` validates and builds `infrastructure/docker/compose.yaml`, waits
+for health, and ensures all four MinIO buckets exist. `make compose-verify` checks
+health and persistence across restart. `make compose-logs` follows logs, and
+`make compose-down` stops the stack without deleting named volumes. Credentials
+come from the ignored root `.env`; override `ENV_FILE` or `COMPOSE_FILE` as needed.
 
 ## Package layout and naming
 

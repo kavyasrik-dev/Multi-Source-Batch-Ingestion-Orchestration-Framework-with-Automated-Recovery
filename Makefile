@@ -2,14 +2,17 @@
 PYTHON ?= python
 COMPOSE ?= docker compose
 COMPOSE_FILE ?= infrastructure/docker/compose.yaml
+ENV_FILE ?= .env
+STACK = $(COMPOSE) --env-file "$(ENV_FILE)" -f "$(COMPOSE_FILE)"
 
-.PHONY: help install-dev lint format test-unit compose-check compose-up compose-down compose-logs
+.PHONY: help install-dev lint format test-unit compose-check compose-up compose-down compose-logs compose-verify
 
 help:
 	@echo "install-dev: install editable project and pinned development tools"
 	@echo "lint: check lint and formatting; format: apply formatting"
 	@echo "test-unit: run tests/unit (exit 5 means no tests exist yet)"
-	@echo "compose-up / compose-down / compose-logs: reserved for future Compose stack"
+	@echo "compose-up / compose-down / compose-logs: local infrastructure lifecycle"
+	@echo "compose-verify: verify health, bucket initialization and restart persistence"
 
 install-dev:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -24,15 +27,19 @@ format:
 test-unit:
 	$(PYTHON) -m pytest tests/unit
 
-# Validate first so lifecycle commands fail clearly until the stack is implemented.
+# Explicit env-file resolves credentials from the repository root.
 compose-check:
-	$(COMPOSE) -f "$(COMPOSE_FILE)" config --quiet
+	$(STACK) config --quiet
 
 compose-up: compose-check
-	$(COMPOSE) -f "$(COMPOSE_FILE)" up -d
+	$(STACK) up -d --build --wait --wait-timeout 240
+	$(STACK) run --rm minio-init
 
 compose-down: compose-check
-	$(COMPOSE) -f "$(COMPOSE_FILE)" down
+	$(STACK) down
 
 compose-logs: compose-check
-	$(COMPOSE) -f "$(COMPOSE_FILE)" logs -f
+	$(STACK) logs -f
+
+compose-verify:
+	$(PYTHON) scripts/verify_infrastructure.py --env-file "$(ENV_FILE)" --compose-file "$(COMPOSE_FILE)"
