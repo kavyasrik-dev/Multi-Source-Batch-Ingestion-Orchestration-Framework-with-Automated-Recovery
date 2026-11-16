@@ -1,9 +1,12 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 3 adds local PostgreSQL, MinIO, Prometheus and Grafana infrastructure to the
-Python development setup. Connectors, pipelines and orchestrators are not implemented.
+Day 4 adds a PostgreSQL metadata model, versioned SQL migrations and repository
+access to the local infrastructure and Python development setup.
+Connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
+See [metadata model](docs/design/metadata-model.md) for schema design, migrations,
+transaction semantics and opt-in PostgreSQL integration tests.
 
 ## Prerequisites and setup
 
@@ -68,6 +71,8 @@ Unit tests must not require network access, databases or object storage. Share t
 fixtures through `conftest.py` when needed. Unknown markers/configuration and warnings
 fail validation. pytest exit code **5** means no tests were collected, not a passing suite.
 Unit tests currently cover MinIO bucket initialization and error handling.
+Metadata unit checks validate migration assets; database integration tests cover
+constraints, rollback, CRUD and concurrent workers with `TEST_DATABASE_URL` set.
 
 `make compose-up` validates and builds `infrastructure/docker/compose.yaml`, waits
 for health, and ensures all four MinIO buckets exist. `make compose-verify` checks

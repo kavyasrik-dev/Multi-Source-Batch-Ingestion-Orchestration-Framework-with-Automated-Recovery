@@ -5,7 +5,7 @@ COMPOSE_FILE ?= infrastructure/docker/compose.yaml
 ENV_FILE ?= .env
 STACK = $(COMPOSE) --env-file "$(ENV_FILE)" -f "$(COMPOSE_FILE)"
 
-.PHONY: help install-dev lint format test-unit compose-check compose-up compose-down compose-logs compose-verify
+.PHONY: help install-dev lint format test-unit test-metadata metadata-migrate compose-check compose-up compose-down compose-logs compose-verify
 
 help:
 	@echo "install-dev: install editable project and pinned development tools"
@@ -26,6 +26,12 @@ format:
 
 test-unit:
 	$(PYTHON) -m pytest tests/unit
+
+test-metadata:
+	$(PYTHON) -m pytest tests/integration/test_metadata.py
+
+metadata-migrate:
+	$(PYTHON) -m app.common.metadata.migrate
 
 # Explicit env-file resolves credentials from the repository root.
 compose-check:
