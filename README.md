@@ -1,12 +1,14 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 4 adds a PostgreSQL metadata model, versioned SQL migrations and repository
-access to the local infrastructure and Python development setup.
+Day 5 adds a canonical orders contract and deterministic Parquet utilities alongside
+the PostgreSQL metadata model and local infrastructure.
 Connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
 See [metadata model](docs/design/metadata-model.md) for schema design, migrations,
 transaction semantics and opt-in PostgreSQL integration tests.
+See [canonical orders contract](docs/design/canonical-orders-contract.md) for field
+types, conversion rules, partitioning, file sizing and schema compatibility.
 
 ## Prerequisites and setup
 
@@ -41,7 +43,8 @@ Never commit secrets or real source data. Environment files are not loaded autom
 
 `pyproject.toml` is the source of package metadata and exact direct dependency pins:
 Requests 2.32.5 for future HTTP ingestion, Psycopg binary 3.2.10 for PostgreSQL,
-MinIO 7.2.18 for object storage, Ruff 0.14.4 and pytest 8.4.2 for development,
+MinIO 7.2.18 for object storage, PyArrow 26.0.1 for canonical Parquet files,
+Ruff 0.14.4 and pytest 8.4.2 for development,
 and setuptools 80.9.0 for builds. Transitive dependencies are resolved by pip;
 these direct pins are not a fully locked dependency graph.
 
