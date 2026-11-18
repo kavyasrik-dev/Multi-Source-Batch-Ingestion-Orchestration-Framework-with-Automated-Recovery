@@ -5,12 +5,13 @@ COMPOSE_FILE ?= infrastructure/docker/compose.yaml
 ENV_FILE ?= .env
 STACK = $(COMPOSE) --env-file "$(ENV_FILE)" -f "$(COMPOSE_FILE)"
 
-.PHONY: help install-dev lint format test-unit test-metadata metadata-migrate compose-check compose-up compose-down compose-logs compose-verify
+.PHONY: help install-dev lint format test-unit test-metadata test-storage metadata-migrate compose-check compose-up compose-down compose-logs compose-verify
 
 help:
 	@echo "install-dev: install editable project and pinned development tools"
 	@echo "lint: check lint and formatting; format: apply formatting"
 	@echo "test-unit: run tests/unit (exit 5 means no tests exist yet)"
+	@echo "test-metadata / test-storage: opt-in service integration tests"
 	@echo "compose-up / compose-down / compose-logs: local infrastructure lifecycle"
 	@echo "compose-verify: verify health, bucket initialization and restart persistence"
 
@@ -29,6 +30,9 @@ test-unit:
 
 test-metadata:
 	$(PYTHON) -m pytest tests/integration/test_metadata.py
+
+test-storage:
+	$(PYTHON) -m pytest tests/integration/test_minio_storage.py
 
 metadata-migrate:
 	$(PYTHON) -m app.common.metadata.migrate

@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -22,6 +23,10 @@ class StateConflict(ValueError):
 
 class StaleCheckpoint(ValueError):
     """Checkpoint positions must advance strictly when replacing an existing checkpoint."""
+
+
+class ManifestConflict(ValueError):
+    """Manifest registration differs from the batch's immutable identity or prior reference."""
 
 
 class MetadataRepository:
@@ -161,6 +166,71 @@ class MetadataRepository:
             if row is None:
                 raise StaleCheckpoint(step)
             return row
+
+    def register_manifest(
+        self,
+        batch_id: UUID,
+        *,
+        source: str,
+        logical_date: date,
+        object_uri: str,
+        record_count: int,
+        content_checksum_sha256: str,
+        content_bytes: int,
+        manifest_uri: str,
+        manifest_checksum_sha256: str,
+    ) -> dict:
+        """Set an exact manifest reference once, or return the identical registration."""
+        with self._cursor() as cur:
+            cur.execute(
+                """SELECT batch.*, source.name AS source_name
+                FROM batch_manifest AS batch
+                JOIN source_config AS source ON batch.source_id = source.id
+                WHERE batch.id = %s
+                FOR UPDATE OF batch""",
+                (batch_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(batch_id)
+            expected = {
+                "source_name": source,
+                "object_uri": object_uri,
+                "record_count": record_count,
+            }
+            if any(row[field] != value for field, value in expected.items()):
+                raise ManifestConflict(str(batch_id))
+            registration = {
+                "logical_date": logical_date,
+                "content_checksum_sha256": content_checksum_sha256,
+                "content_bytes": content_bytes,
+                "manifest_uri": manifest_uri,
+                "manifest_checksum_sha256": manifest_checksum_sha256,
+            }
+            if row["manifest_uri"] is not None:
+                if all(row[field] == value for field, value in registration.items()):
+                    row.pop("source_name")
+                    return row
+                raise ManifestConflict(str(batch_id))
+            cur.execute(
+                """UPDATE batch_manifest
+                SET logical_date = %s,
+                    content_checksum_sha256 = %s,
+                    content_bytes = %s,
+                    manifest_uri = %s,
+                    manifest_checksum_sha256 = %s
+                WHERE id = %s
+                RETURNING *""",
+                (
+                    logical_date,
+                    content_checksum_sha256,
+                    content_bytes,
+                    manifest_uri,
+                    manifest_checksum_sha256,
+                    batch_id,
+                ),
+            )
+            return cur.fetchone()
 
     def add_validation(
         self,

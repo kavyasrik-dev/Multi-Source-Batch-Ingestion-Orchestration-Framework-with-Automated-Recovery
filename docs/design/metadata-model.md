@@ -16,7 +16,7 @@ configuration and diagnostic details, never passwords or tokens.
 | --- | --- | --- |
 | `source_config` | unique nonblank name | Connector kind, public config, enabled flag |
 | `ingestion_run` | source FK; unique `(id, source_id)` | Execution status and start/finish times |
-| `batch_manifest` | composite run/source FK; unique `(source_id, logical_batch_key)` | Durable batch identity, object URI, row count and processing state |
+| `batch_manifest` | composite run/source FK; unique logical key and manifest URI | Batch identity, object/manifest integrity and processing state |
 | `checkpoint` | batch FK; unique `(batch_id, step)` | Resume position and cursor payload |
 | `validation_result` | batch FK; unique `(batch_id, rule_name, attempt)` | Append-only rule outcome and checked/failed counts |
 | `recovery_event` | composite batch/run FK; unique `(batch_id, attempt)` | Recovery action, state and diagnostic details |
@@ -53,6 +53,9 @@ finished_at on terminal/failed status; retry clears finished_at but retains the
 original start. Timestamp checks prevent contradictory status/time combinations.
 Validation statuses are passed, failed, error and skipped.
 
+Migration 3 adds logical date, content SHA-256/bytes, manifest URI and manifest
+SHA-256 as an all-or-none registration. Historical rows can remain unregistered.
+
 `MetadataRepository` uses bound values, allowlisted table names and quoted schema
 identifiers. Each method opens a transaction (or a savepoint inside a caller's
 transaction). Prefer a dedicated `psycopg.connect(..., autocommit=True)` connection
@@ -79,8 +82,9 @@ python -m app.common.metadata.migrate
 python -m app.common.metadata.migrate --target 1 --allow-downgrade
 ```
 
-Downgrades are destructive administrative operations. Version 2 removes guards and
-indexes; version 1 rollback deletes all six metadata tables and their contents.
+Downgrades are destructive administrative operations. Version 3 removes manifest
+references, version 2 removes guards and indexes, and version 1 rollback deletes all
+six metadata tables and their contents.
 Take backups before any downgrade. A checksummed ledger and advisory transaction
 lock serialize runners, detect edited migration files and reject gaps. Pending
 migrations and ledger changes commit together; failure rolls back the entire call.

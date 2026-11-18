@@ -3,6 +3,7 @@
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from threading import Barrier
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from psycopg.errors import (
 from app.common.metadata.migrate import MIGRATIONS, migrate
 from app.common.metadata.repository import (
     DuplicateBatch,
+    ManifestConflict,
     MetadataRepository,
     StaleCheckpoint,
     StateConflict,
@@ -56,30 +58,30 @@ def seed(repo):
 
 def test_migrations_reapply_and_rollback(database):
     conn, schema, _ = database
-    assert migrate(conn, schema) == 2
+    assert migrate(conn, schema) == 3
     with pytest.raises(ValueError, match="Downgrade"):
         migrate(conn, schema, target=0)
     assert migrate(conn, schema, target=0, allow_downgrade=True) == 0
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".source_config",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 2
+    assert migrate(conn, schema) == 3
 
 
 def test_failed_migration_rolls_back_all_pending_ddl(database, tmp_path):
     conn, schema, _ = database
     for path in MIGRATIONS.glob("*.sql"):
         shutil.copy(path, tmp_path)
-    (tmp_path / "0003_broken.up.sql").write_text(
+    (tmp_path / "0004_broken.up.sql").write_text(
         "CREATE TABLE must_rollback(id integer); SELECT 1 / 0;", encoding="utf-8"
     )
-    (tmp_path / "0003_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
+    (tmp_path / "0004_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
     with pytest.raises(DivisionByZero):
         migrate(conn, schema, directory=tmp_path)
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".must_rollback",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 2
+    assert migrate(conn, schema) == 3
 
 
 def test_migration_checksum_tampering_is_rejected(database, tmp_path):
@@ -170,6 +172,26 @@ def test_checkpoints_reject_stale_and_equal_positions(repo):
         with pytest.raises(StaleCheckpoint):
             repo.save_checkpoint(batch["id"], "extract", position)
     assert repo.get("checkpoint", first["id"])["position"] == 10
+
+
+def test_manifest_registration_is_idempotent_and_conflict_safe(repo):
+    source, _, batch = seed(repo)
+    values = {
+        "source": source["name"],
+        "logical_date": date(2026, 11, 16),
+        "object_uri": batch["object_uri"],
+        "record_count": batch["record_count"],
+        "content_checksum_sha256": "a" * 64,
+        "content_bytes": 123,
+        "manifest_uri": f"s3://raw/manifests/{batch['id']}.json",
+        "manifest_checksum_sha256": "b" * 64,
+    }
+    first = repo.register_manifest(batch["id"], **values)
+    second = repo.register_manifest(batch["id"], **values)
+    assert first["manifest_uri"] == second["manifest_uri"]
+    assert first["updated_at"] == second["updated_at"]
+    with pytest.raises(ManifestConflict):
+        repo.register_manifest(batch["id"], **{**values, "manifest_checksum_sha256": "c" * 64})
 
 
 def test_constraints_and_composite_relationships(repo, database):

@@ -1,0 +1,11 @@
+ALTER TABLE batch_manifest
+    DROP CONSTRAINT batch_manifest_uri_unique,
+    DROP CONSTRAINT manifest_registration_complete,
+    DROP CONSTRAINT manifest_bytes_nonnegative,
+    DROP CONSTRAINT manifest_checksum_format,
+    DROP CONSTRAINT manifest_content_checksum_format,
+    DROP COLUMN manifest_checksum_sha256,
+    DROP COLUMN manifest_uri,
+    DROP COLUMN content_bytes,
+    DROP COLUMN content_checksum_sha256,
+    DROP COLUMN logical_date;

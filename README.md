@@ -1,7 +1,7 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 5 adds a canonical orders contract and deterministic Parquet utilities alongside
-the PostgreSQL metadata model and local infrastructure.
+Day 6 adds checksum-aware MinIO operations and idempotent batch manifests alongside
+the canonical orders contract, PostgreSQL metadata model and local infrastructure.
 Connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
@@ -9,6 +9,8 @@ See [metadata model](docs/design/metadata-model.md) for schema design, migration
 transaction semantics and opt-in PostgreSQL integration tests.
 See [canonical orders contract](docs/design/canonical-orders-contract.md) for field
 types, conversion rules, partitioning, file sizing and schema compatibility.
+See [MinIO manifests](docs/design/minio-manifests.md) for zone naming, retries,
+checksum verification and PostgreSQL manifest registration.
 
 ## Prerequisites and setup
 
@@ -62,6 +64,8 @@ Run from the repository root with the virtual environment active:
 | `make lint` | `python -m ruff check .` then `python -m ruff format --check .` |
 | `make format` | `python -m ruff format .` |
 | `make test-unit` | `python -m pytest tests/unit` |
+| `make test-metadata` | PostgreSQL integration tests with `TEST_DATABASE_URL` |
+| `make test-storage` | MinIO integration tests with `TEST_MINIO_*` variables |
 
 Ruff uses Python 3.12 syntax, 100-character lines, four-space indentation, double
 quotes, LF line endings and sorted imports. Lint checks do not modify files.
@@ -73,7 +77,7 @@ are `unit`, `integration` and `recovery`; apply them explicitly when useful.
 Unit tests must not require network access, databases or object storage. Share test
 fixtures through `conftest.py` when needed. Unknown markers/configuration and warnings
 fail validation. pytest exit code **5** means no tests were collected, not a passing suite.
-Unit tests currently cover MinIO bucket initialization and error handling.
+Unit tests cover MinIO operations, retry/error handling, manifests and contracts.
 Metadata unit checks validate migration assets; database integration tests cover
 constraints, rollback, CRUD and concurrent workers with `TEST_DATABASE_URL` set.
 
