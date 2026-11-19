@@ -1,8 +1,8 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 6 adds checksum-aware MinIO operations and idempotent batch manifests alongside
-the canonical orders contract, PostgreSQL metadata model and local infrastructure.
-Connectors, pipelines and orchestrators are not implemented.
+Day 7 adds a common source adapter contract and strict streaming CSV adapter alongside
+the storage, canonical contract, metadata and local infrastructure layers.
+Additional source connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
 See [metadata model](docs/design/metadata-model.md) for schema design, migrations,
@@ -11,6 +11,8 @@ See [canonical orders contract](docs/design/canonical-orders-contract.md) for fi
 types, conversion rules, partitioning, file sizing and schema compatibility.
 See [MinIO manifests](docs/design/minio-manifests.md) for zone naming, retries,
 checksum verification and PostgreSQL manifest registration.
+See [source adapters](docs/design/source-adapters.md) for discovery, file identity,
+CSV validation and stable bounded batch IDs.
 
 ## Prerequisites and setup
 
