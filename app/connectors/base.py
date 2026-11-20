@@ -30,7 +30,7 @@ class SourceMetadata:
 class SourceRecord:
     """One extracted source row with its physical line for diagnostics."""
 
-    values: Mapping[str, str]
+    values: Mapping[str, object]
     line_number: int
 
 

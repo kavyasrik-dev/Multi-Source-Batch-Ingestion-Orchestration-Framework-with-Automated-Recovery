@@ -1,7 +1,7 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 7 adds a common source adapter contract and strict streaming CSV adapter alongside
-the storage, canonical contract, metadata and local infrastructure layers.
+Day 8 adds a retrying, replayable HTTP/JSON source adapter alongside the common adapter
+contract, CSV ingestion, storage, canonical contract, metadata and infrastructure layers.
 Additional source connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
@@ -13,6 +13,8 @@ See [MinIO manifests](docs/design/minio-manifests.md) for zone naming, retries,
 checksum verification and PostgreSQL manifest registration.
 See [source adapters](docs/design/source-adapters.md) for discovery, file identity,
 CSV validation and stable bounded batch IDs.
+See [HTTP/JSON adapter](docs/design/http-json-adapter.md) for cursor pagination, raw
+response persistence, bounded retries, response validation and secret-free audit metadata.
 
 ## Prerequisites and setup
 
