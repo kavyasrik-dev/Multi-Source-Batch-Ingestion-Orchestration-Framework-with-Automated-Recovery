@@ -15,6 +15,8 @@ def test_migration_assets_are_packaged_as_paired_versions():
         "0002_states_indexes.down.sql",
         "0003_manifest_registration.up.sql",
         "0003_manifest_registration.down.sql",
+        "0004_source_watermark.up.sql",
+        "0004_source_watermark.down.sql",
     }
 
 

@@ -58,30 +58,30 @@ def seed(repo):
 
 def test_migrations_reapply_and_rollback(database):
     conn, schema, _ = database
-    assert migrate(conn, schema) == 3
+    assert migrate(conn, schema) == 4
     with pytest.raises(ValueError, match="Downgrade"):
         migrate(conn, schema, target=0)
     assert migrate(conn, schema, target=0, allow_downgrade=True) == 0
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".source_config",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 3
+    assert migrate(conn, schema) == 4
 
 
 def test_failed_migration_rolls_back_all_pending_ddl(database, tmp_path):
     conn, schema, _ = database
     for path in MIGRATIONS.glob("*.sql"):
         shutil.copy(path, tmp_path)
-    (tmp_path / "0004_broken.up.sql").write_text(
+    (tmp_path / "0005_broken.up.sql").write_text(
         "CREATE TABLE must_rollback(id integer); SELECT 1 / 0;", encoding="utf-8"
     )
-    (tmp_path / "0004_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
+    (tmp_path / "0005_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
     with pytest.raises(DivisionByZero):
         migrate(conn, schema, directory=tmp_path)
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".must_rollback",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 3
+    assert migrate(conn, schema) == 4
 
 
 def test_migration_checksum_tampering_is_rejected(database, tmp_path):

@@ -1,7 +1,7 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 8 adds a retrying, replayable HTTP/JSON source adapter alongside the common adapter
-contract, CSV ingestion, storage, canonical contract, metadata and infrastructure layers.
+Day 9 adds read-only incremental PostgreSQL ingestion and publication-gated watermarks
+alongside the HTTP/JSON and CSV adapters, storage, metadata and infrastructure layers.
 Additional source connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
@@ -15,6 +15,8 @@ See [source adapters](docs/design/source-adapters.md) for discovery, file identi
 CSV validation and stable bounded batch IDs.
 See [HTTP/JSON adapter](docs/design/http-json-adapter.md) for cursor pagination, raw
 response persistence, bounded retries, response validation and secret-free audit metadata.
+See [PostgreSQL source adapter](docs/design/postgres-source-adapter.md) for deterministic
+incremental windows, late-row overlap and safe watermark advancement.
 
 ## Prerequisites and setup
 

@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -27,6 +27,10 @@ class StaleCheckpoint(ValueError):
 
 class ManifestConflict(ValueError):
     """Manifest registration differs from the batch's immutable identity or prior reference."""
+
+
+class WatermarkConflict(ValueError):
+    """The source watermark is stale or would move backwards."""
 
 
 class MetadataRepository:
@@ -165,6 +169,67 @@ class MetadataRepository:
             row = cur.fetchone()
             if row is None:
                 raise StaleCheckpoint(step)
+            return row
+
+    def load_source_watermark(self, source_id: UUID) -> dict:
+        """Create and lock-free read a nullable initial watermark for a configured source."""
+        with self._cursor() as cur:
+            cur.execute(
+                """INSERT INTO source_watermark(source_id)
+                SELECT id FROM source_config WHERE id = %s
+                ON CONFLICT (source_id) DO NOTHING""",
+                (source_id,),
+            )
+            cur.execute("SELECT * FROM source_watermark WHERE source_id = %s", (source_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(source_id)
+            return row
+
+    def advance_source_watermark(
+        self,
+        source_id: UUID,
+        *,
+        expected_version: int,
+        watermark: datetime,
+        tie_breaker: object,
+        publication_uri: str,
+    ) -> dict:
+        """Compare-and-set a watermark only after a caller reports successful publication."""
+        if watermark.tzinfo is None or watermark.utcoffset() is None:
+            raise ValueError("watermark must be timezone-aware")
+        if tie_breaker is None or not publication_uri.strip():
+            raise ValueError("tie_breaker and publication_uri are required")
+        with self._cursor() as cur:
+            cur.execute(
+                """SELECT * FROM source_watermark
+                WHERE source_id = %s FOR UPDATE""",
+                (source_id,),
+            )
+            current = cur.fetchone()
+            if current is None or current["version"] != expected_version:
+                raise WatermarkConflict(str(source_id))
+            current_position = (current["watermark"], current["tie_breaker"])
+            candidate = (watermark, tie_breaker)
+            if current["watermark"] is not None and candidate <= current_position:
+                raise WatermarkConflict("watermark must advance strictly")
+            cur.execute(
+                """UPDATE source_watermark
+                SET watermark = %s, tie_breaker = %s, version = version + 1,
+                    publication_uri = %s
+                WHERE source_id = %s AND version = %s
+                RETURNING *""",
+                (
+                    watermark,
+                    Jsonb(tie_breaker),
+                    publication_uri,
+                    source_id,
+                    expected_version,
+                ),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise WatermarkConflict(str(source_id))
             return row
 
     def register_manifest(

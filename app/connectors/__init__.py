@@ -9,6 +9,13 @@ from app.connectors.base import (
 )
 from app.connectors.csv import CSVAdapter, CSVAdapterConfig
 from app.connectors.http_json import HTTPJSONAdapter, HTTPJSONConfig, RequestMetadata
+from app.connectors.postgres import (
+    ExtractionWindow,
+    PostgresAdapter,
+    PostgresAdapterConfig,
+    PsycopgSourceReader,
+    WatermarkState,
+)
 
 __all__ = [
     "CSVAdapter",
@@ -16,9 +23,14 @@ __all__ = [
     "ExtractedBatch",
     "HTTPJSONAdapter",
     "HTTPJSONConfig",
+    "ExtractionWindow",
+    "PostgresAdapter",
+    "PostgresAdapterConfig",
+    "PsycopgSourceReader",
     "RequestMetadata",
     "SourceAdapter",
     "SourceMetadata",
     "SourceObject",
     "SourceRecord",
+    "WatermarkState",
 ]
