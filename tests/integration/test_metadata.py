@@ -96,6 +96,11 @@ def test_migration_checksum_tampering_is_rejected(database, tmp_path):
 
 def test_source_crud_and_history_protection(repo):
     source = repo.create_source("unused", "file")
+    disabled = repo.create_source("disabled-list", "file")
+    repo.update_source(disabled["id"], config={}, enabled=False)
+    assert source["id"] in {row["id"] for row in repo.list_sources()}
+    assert disabled["id"] not in {row["id"] for row in repo.list_sources()}
+    assert disabled["id"] in {row["id"] for row in repo.list_sources(enabled_only=False)}
     assert repo.get("source_config", source["id"])["enabled"] is True
     updated = repo.update_source(source["id"], config={"path": "fixtures"}, enabled=False)
     assert updated["config"] == {"path": "fixtures"}

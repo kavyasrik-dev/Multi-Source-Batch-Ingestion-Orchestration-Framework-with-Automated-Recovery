@@ -1,7 +1,7 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 9 adds read-only incremental PostgreSQL ingestion and publication-gated watermarks
-alongside the HTTP/JSON and CSV adapters, storage, metadata and infrastructure layers.
+Day 10 adds typed source registration, deterministic batch discovery and concurrency-safe
+claims alongside the PostgreSQL, HTTP/JSON and CSV ingestion adapters.
 Additional source connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
@@ -17,6 +17,8 @@ See [HTTP/JSON adapter](docs/design/http-json-adapter.md) for cursor pagination,
 response persistence, bounded retries, response validation and secret-free audit metadata.
 See [PostgreSQL source adapter](docs/design/postgres-source-adapter.md) for deterministic
 incremental windows, late-row overlap and safe watermark advancement.
+See [source registry](docs/design/source-registry.md) for configuration precedence,
+per-source limits, logical batch identity and duplicate registration behavior.
 
 ## Prerequisites and setup
 

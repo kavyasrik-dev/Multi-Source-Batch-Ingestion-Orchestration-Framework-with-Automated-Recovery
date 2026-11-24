@@ -107,6 +107,16 @@ class MetadataRepository:
             cur.execute("DELETE FROM source_config WHERE id = %s", (source_id,))
             return cur.rowcount == 1
 
+    def list_sources(self, *, enabled_only: bool = True) -> tuple[dict, ...]:
+        """List source definitions deterministically, excluding disabled rows by default."""
+        with self._cursor() as cur:
+            query = "SELECT * FROM source_config"
+            if enabled_only:
+                query += " WHERE enabled"
+            query += " ORDER BY name ASC, id ASC"
+            cur.execute(query)
+            return tuple(cur.fetchall())
+
     def create_run(
         self, source_id: UUID, logical_batch_key: str, object_uri: str, *, record_count: int = 0
     ) -> tuple[dict, dict]:
