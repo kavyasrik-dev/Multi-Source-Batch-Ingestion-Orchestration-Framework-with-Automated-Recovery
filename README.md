@@ -1,7 +1,7 @@
 # Multi-Source Batch Ingestion Framework
 
-Day 10 adds typed source registration, deterministic batch discovery and concurrency-safe
-claims alongside the PostgreSQL, HTTP/JSON and CSV ingestion adapters.
+Day 11 adds isolated canonical normalization, rejected-row retention and staging Parquet
+publication alongside source registration and the PostgreSQL, HTTP/JSON and CSV adapters.
 Additional source connectors, pipelines and orchestrators are not implemented.
 No CI/CD is configured. See [local infrastructure](docs/design/local-infrastructure.md)
 for setup, service endpoints and the outstanding live Docker verification.
@@ -19,6 +19,8 @@ See [PostgreSQL source adapter](docs/design/postgres-source-adapter.md) for dete
 incremental windows, late-row overlap and safe watermark advancement.
 See [source registry](docs/design/source-registry.md) for configuration precedence,
 per-source limits, logical batch identity and duplicate registration behavior.
+See [normalization pipeline](docs/design/normalization-pipeline.md) for source mappings,
+conversion rules, rejected rows, staging Parquet and deterministic retry behavior.
 
 ## Prerequisites and setup
 
