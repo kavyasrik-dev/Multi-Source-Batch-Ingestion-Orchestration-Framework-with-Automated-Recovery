@@ -32,6 +32,25 @@ class StagingPublisher(Protocol):
     ) -> tuple[StoredObject, ...]: ...
 
 
+class QualityDecision(Protocol):
+    @property
+    def blocking_failed(self) -> bool: ...
+
+
+class QualityGateRunner(Protocol):
+    def validate_and_persist(
+        self,
+        records: Sequence[OrderRecord],
+        *,
+        metadata_batch_id: UUID,
+        source: str,
+        ingest_date: date,
+        output_batch_id: UUID,
+        existing_rejected_uris: Sequence[str] = (),
+        attempt: int = 1,
+    ) -> QualityDecision: ...
+
+
 @dataclass(frozen=True, slots=True)
 class RejectedRow:
     """Original extracted row plus canonical field failure reasons."""
@@ -52,6 +71,8 @@ class TransformationResult:
     rejected_rows: tuple[RejectedRow, ...]
     staging_objects: tuple[StoredObject, ...]
     rejected_object: StoredObject | None
+    quality_report: QualityDecision | None = None
+    publication_blocked: bool = False
 
     def __post_init__(self) -> None:
         if self.input_count != self.accepted_count + self.rejected_count:
@@ -70,10 +91,12 @@ class TransformationPipeline:
         transformer: OrderTransformer,
         store: MinioObjectStore,
         staging: StagingPublisher,
+        quality_gate: QualityGateRunner | None = None,
     ) -> None:
         self.transformer = transformer
         self.store = store
         self.staging = staging
+        self.quality_gate = quality_gate
 
     def process(
         self,
@@ -81,10 +104,20 @@ class TransformationPipeline:
         *,
         source: str,
         ingested_at: datetime,
+        metadata_batch_id: UUID | None = None,
+        validation_attempt: int = 1,
     ) -> TransformationResult:
         """Transform row-by-row; extraction must have completed before this method is called."""
         if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
             raise ValueError("ingested_at must be timezone-aware")
+        if self.quality_gate is not None and metadata_batch_id is None:
+            raise ValueError("metadata_batch_id is required when a quality gate is configured")
+        if (
+            isinstance(validation_attempt, bool)
+            or not isinstance(validation_attempt, int)
+            or validation_attempt < 1
+        ):
+            raise ValueError("validation_attempt must be a positive integer")
         normalized_ingested_at = ingested_at.astimezone(UTC)
         ingest_date = normalized_ingested_at.date()
         accepted: list[OrderRecord] = []
@@ -113,11 +146,31 @@ class TransformationPipeline:
                 ingest_date=ingest_date,
                 batch_id=batch.batch_id,
             )
-            staging_objects = self.staging.publish(
-                accepted,
-                source=source,
-                ingest_date=ingest_date,
-                batch_id=batch.batch_id,
+            quality_report = None
+            if self.quality_gate is not None:
+                quality_report = self.quality_gate.validate_and_persist(
+                    accepted,
+                    metadata_batch_id=metadata_batch_id,
+                    source=source,
+                    ingest_date=ingest_date,
+                    output_batch_id=batch.batch_id,
+                    existing_rejected_uris=(
+                        (rejected_object.uri,) if rejected_object is not None else ()
+                    ),
+                    attempt=validation_attempt,
+                )
+            publication_blocked = bool(
+                quality_report is not None and quality_report.blocking_failed
+            )
+            staging_objects = (
+                ()
+                if publication_blocked
+                else self.staging.publish(
+                    accepted,
+                    source=source,
+                    ingest_date=ingest_date,
+                    batch_id=batch.batch_id,
+                )
             )
         except Exception as exc:
             raise TransformationPublicationError(
@@ -131,6 +184,8 @@ class TransformationPipeline:
             rejected_rows=tuple(rejected),
             staging_objects=tuple(staging_objects),
             rejected_object=rejected_object,
+            quality_report=quality_report,
+            publication_blocked=publication_blocked,
         )
 
     def _publish_rejected(

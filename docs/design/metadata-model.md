@@ -59,6 +59,8 @@ SHA-256 as an all-or-none registration. Historical rows can remain unregistered.
 Migration 4 adds the nullable timestamp/tie-breaker watermark pair used by incremental
 PostgreSQL sources. Repository updates lock the row, compare its version and reject
 backward, equal or stale advancement.
+Migration 5 adds `warning` to validation outcomes. Idempotent summary registration keeps
+the same `(batch, rule, attempt)` immutable and rejects conflicting retry content.
 
 `MetadataRepository` uses bound values, allowlisted table names and quoted schema
 identifiers. Each method opens a transaction (or a savepoint inside a caller's
@@ -86,9 +88,10 @@ python -m app.common.metadata.migrate
 python -m app.common.metadata.migrate --target 1 --allow-downgrade
 ```
 
-Downgrades are destructive administrative operations. Version 4 removes source
-watermarks, version 3 removes manifest references, version 2 removes guards and indexes,
-and version 1 rollback deletes the original six metadata tables and their contents.
+Downgrades are destructive administrative operations. Version 5 converts warnings to
+failures before removing the warning status, version 4 removes source watermarks,
+version 3 removes manifest references, version 2 removes guards and indexes, and version
+1 rollback deletes the original six metadata tables and their contents.
 Take backups before any downgrade. A checksummed ledger and advisory transaction
 lock serialize runners, detect edited migration files and reject gaps. Pending
 migrations and ledger changes commit together; failure rolls back the entire call.

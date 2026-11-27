@@ -33,6 +33,10 @@ class WatermarkConflict(ValueError):
     """The source watermark is stale or would move backwards."""
 
 
+class ValidationConflict(ValueError):
+    """A validation rule attempt was already registered with different content."""
+
+
 class MetadataRepository:
     """Use a dedicated connection, preferably autocommit=True.
 
@@ -336,6 +340,57 @@ class MetadataRepository:
                 ),
             )
             return cur.fetchone()
+
+    def register_validation_summary(
+        self,
+        batch_id: UUID,
+        rule_name: str,
+        status: str,
+        checked_count: int,
+        failed_count: int,
+        *,
+        attempt: int = 1,
+        details: dict[str, Any] | None = None,
+    ) -> dict:
+        """Register an immutable summary idempotently and reject conflicting reruns."""
+        values = details if details is not None else {}
+        with self._cursor() as cur:
+            cur.execute(
+                """INSERT INTO validation_result
+                (id, batch_id, rule_name, attempt, status, checked_count, failed_count, details)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (batch_id, rule_name, attempt) DO NOTHING
+                RETURNING *""",
+                (
+                    uuid4(),
+                    batch_id,
+                    rule_name,
+                    attempt,
+                    status,
+                    checked_count,
+                    failed_count,
+                    Jsonb(values),
+                ),
+            )
+            row = cur.fetchone()
+            if row is not None:
+                return row
+            cur.execute(
+                """SELECT * FROM validation_result
+                WHERE batch_id = %s AND rule_name = %s AND attempt = %s
+                FOR UPDATE""",
+                (batch_id, rule_name, attempt),
+            )
+            row = cur.fetchone()
+            expected = {
+                "status": status,
+                "checked_count": checked_count,
+                "failed_count": failed_count,
+                "details": values,
+            }
+            if row is None or any(row[key] != value for key, value in expected.items()):
+                raise ValidationConflict(f"{batch_id}:{rule_name}:{attempt}")
+            return row
 
     def add_recovery(
         self,

@@ -25,6 +25,7 @@ from app.common.metadata.repository import (
     MetadataRepository,
     StaleCheckpoint,
     StateConflict,
+    ValidationConflict,
 )
 
 pytestmark = pytest.mark.integration
@@ -58,30 +59,30 @@ def seed(repo):
 
 def test_migrations_reapply_and_rollback(database):
     conn, schema, _ = database
-    assert migrate(conn, schema) == 4
+    assert migrate(conn, schema) == 5
     with pytest.raises(ValueError, match="Downgrade"):
         migrate(conn, schema, target=0)
     assert migrate(conn, schema, target=0, allow_downgrade=True) == 0
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".source_config",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 4
+    assert migrate(conn, schema) == 5
 
 
 def test_failed_migration_rolls_back_all_pending_ddl(database, tmp_path):
     conn, schema, _ = database
     for path in MIGRATIONS.glob("*.sql"):
         shutil.copy(path, tmp_path)
-    (tmp_path / "0005_broken.up.sql").write_text(
+    (tmp_path / "0006_broken.up.sql").write_text(
         "CREATE TABLE must_rollback(id integer); SELECT 1 / 0;", encoding="utf-8"
     )
-    (tmp_path / "0005_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
+    (tmp_path / "0006_broken.down.sql").write_text("DROP TABLE must_rollback;", encoding="utf-8")
     with pytest.raises(DivisionByZero):
         migrate(conn, schema, directory=tmp_path)
     assert (
         conn.execute("SELECT to_regclass(%s)", (schema + ".must_rollback",)).fetchone()[0] is None
     )
-    assert migrate(conn, schema) == 4
+    assert migrate(conn, schema) == 5
 
 
 def test_migration_checksum_tampering_is_rejected(database, tmp_path):
@@ -141,6 +142,27 @@ def test_all_metadata_records_and_state_transitions(repo):
         repo.transition("ingestion_run", run["id"], "succeeded", "running")
     with pytest.raises(CheckViolation):
         repo.transition("batch_manifest", batch["id"], "curated", "staged")
+
+
+def test_validation_summary_warning_is_idempotent_and_conflict_safe(repo):
+    _, _, batch = seed(repo)
+    details = {
+        "outcome": "warning",
+        "violation_count": 1,
+        "rejected_uris": ["s3://rejected/orders/issues.jsonl"],
+    }
+    first = repo.register_validation_summary(
+        batch["id"], "amount_warning", "warning", 10, 1, details=details
+    )
+    second = repo.register_validation_summary(
+        batch["id"], "amount_warning", "warning", 10, 1, details=details
+    )
+    assert first["id"] == second["id"]
+    assert second["details"]["rejected_uris"] == details["rejected_uris"]
+    with pytest.raises(ValidationConflict):
+        repo.register_validation_summary(
+            batch["id"], "amount_warning", "failed", 10, 2, details=details
+        )
 
 
 def test_duplicate_batch_rolls_back_new_run_and_connection_remains_usable(repo, database):

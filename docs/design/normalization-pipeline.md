@@ -58,6 +58,10 @@ raise `TransformationPublicationError` and are never mislabeled as row failures.
 orchestrator can retry publication using the same batch and `ingested_at`; watermark or
 run success must only advance after this pipeline returns successfully.
 
+When a Day 12 quality gate is configured, the pipeline persists transformation rejects,
+evaluates and records quality summaries, and skips the staging publisher entirely if any
+blocking threshold fails. See [data quality](data-quality.md) for rule and outcome details.
+
 Unit tests cover mappings, UUID generation, timestamp offsets, decimals, categories,
 missing/malformed values, rejection payloads, count invariants, publication failures and
 deterministic reruns. The Parquet schema/compression test runs when native PyArrow Parquet
